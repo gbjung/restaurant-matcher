@@ -1,3 +1,7 @@
+'''
+Main file for running the application. Aggregates various projects together.
+'''
+
 from flask import Flask
 from restaurant_matcher.match_service.routes import match_service_blueprint
 
