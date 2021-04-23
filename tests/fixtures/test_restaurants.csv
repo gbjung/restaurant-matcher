@@ -1,0 +1,9 @@
+name,customer_rating,distance,price,cuisine_id
+applebees1,1,1,10,1
+applebees2,2,2,20,1
+applebees3,3,3,30,1
+applebees4,4,4,40,1
+applebees5,5,5,50,2
+applebees6,1,6,35,3
+red lobster,3,7,45,2
+applebees red lobster,4,5,45,3
