@@ -1,103 +1,223 @@
 '''
-Parses csv files into memory. Acts as a database stand in.
+Acts as a querier to make sense of the csv data
 '''
 import json
 from csv import DictReader
 
+from .data_storage import DataStorage
+
 class DataManager:
+
     def __init__(self, cuisine_csv_path, restaurant_csv_path):
-        self.cuisines = {} # cuisines to restaurants
-        self.cuisine_ids = {} # cuisine id to cuisine names
-        self.ratings = {} # restaurant ids to their ratings
-        self.distances = {} # restaurant ids to their distances
-        self.prices = {} # restaurant ids to their prices
-        self.names = {} # restaurant id to their real name
-        self.restaurant_count = 0
-        self.parse_cuisines_from_csv(cuisine_csv_path)
-        self.parse_restaurants_from_csv(restaurant_csv_path)
+        self.data_storage = DataStorage()
+        # Setup data
+        self.data_storage.ingest(cuisine_csv_path, restaurant_csv_path)
 
-    def parse_cuisines_from_csv(self, cuisine_csv_path):
-        '''
-        Transforms the cuisines.csv data into readable dicts
-        input:
-            cuisine_csv_path: str, file path
-        '''
-        with open(cuisine_csv_path, 'r') as read_obj:
-            csv_dict_reader = DictReader(read_obj)
-            for row in csv_dict_reader:
-                self.cuisines[row['name']] = []
-                self.cuisine_ids[row['id']] = row['name']
+        self.param_key_to_store_map = {
+            "rating": self.return_filtered_ratings,
+            "distance": self.return_filtered_distances,
+            "price": self.return_filtered_prices,
+        }
+        # ranking of importance of criterias
+        self.match_importance = ["distance", "rating", "price"]
 
-    def parse_restaurants_from_csv(self, restaurant_csv_path):
+    def return_filtered_ratings(self, restaurant_ids=[], rating=1):
         '''
-        Transforms the restaurants.csv data into readable dicts
-        input:
-            restaurant_csv_path: str, file path
+        Returns the restaurant ids that match the given rating.
+        Ordered from highest rating to lowest
+        ie: rating = 3, order will be 5 -> 4 -> 3
+        args:
+            rating: str, rating value to match
+            restaurant_ids: optional list[str], additional match param
+        output:
+            matching_restaurants: list[list], array of arrays of perserve hierarchy
         '''
-        with open(restaurant_csv_path, 'r') as read_obj:
-            csv_dict_reader = DictReader(read_obj)
-            for row in csv_dict_reader:
-                current_restaurant_id = self.set_ids_to_restaurants(row['name'])
-                self.match_restaurant_to_cuisine(current_restaurant_id, row['cuisine_id'])
-                self.match_restaurant_to_rating(current_restaurant_id, row['customer_rating'])
-                self.match_restaurant_to_distances(current_restaurant_id, row['distance'])
-                self.match_restaurant_to_prices(current_restaurant_id, row['price'])
+        matching_restaurants = []
+        max_rating = 5
 
-    def set_ids_to_restaurants(self, restaurant_name):
+        for rate in range(max_rating, int(rating)-1, -1):
+            matched_restaurants = self.data_storage.ratings.get(str(rate))
+            if matched_restaurants:
+                if restaurant_ids:
+                    filtered_ids = [id for id in matched_restaurants if id in restaurant_ids]
+                    if filtered_ids:
+                        matching_restaurants.append(filtered_ids)
+                else:
+                    matching_restaurants.append(matched_restaurants)
+
+        return matching_restaurants
+
+    def return_filtered_distances(self, restaurant_ids=[], distance=10):
         '''
-        Populates self.names with restaurant names to a generated id
-        input:
-            restaurant_name: str, name of a restaurant
+        Returns the restaurant ids that match the given distance.
+        Ordered from most exact to additionally encompassing
+        ie: distance = 2, order will be 2 -> 3 -> 4...
+        args:
+            distance: str, distance value to match
+            restaurant_ids: optional list[str], additional match param
+        output:
+            matching_restaurants: list[list], array of arrays of perserve hierarchy
+        '''
+        matching_restaurants = []
+        min_distance = 1
+
+        for mile in range(min_distance, int(distance)+1):
+            matched_restaurants = self.data_storage.distances.get(str(mile))
+            if matched_restaurants:
+                if restaurant_ids:
+                    filtered_ids = [id for id in matched_restaurants if id in restaurant_ids]
+                    if filtered_ids:
+                        matching_restaurants.append(filtered_ids)
+                else:
+                    matching_restaurants.append(matched_restaurants)
+
+        return matching_restaurants
+
+    def return_filtered_prices(self, restaurant_ids=[], price=50):
+        '''
+        Returns the restaurant ids that match the given price.
+        Ordered from cheapest
+        ie: price = 20, order will be 10 -> 15 -> 20
+        args:
+            price: str, price value to match
+            restaurant_ids: optional list[str], additional match param
+        output:
+            matching_restaurants: list[list], array of arrays of perserve hierarchy
+        '''
+        matching_restaurants = []
+        min_price = 10
+        price_increase = 5
+
+        for price in range(min_price, int(price)+1, price_increase):
+            matched_restaurants = self.data_storage.prices.get(str(price))
+            if matched_restaurants:
+                if restaurant_ids:
+                    filtered_ids = [id for id in matched_restaurants if id in restaurant_ids]
+                    if filtered_ids:
+                        matching_restaurants.append(filtered_ids)
+                else:
+                    matching_restaurants.append(matched_restaurants)
+
+        return matching_restaurants
+
+    def return_filtered_cuisine(self, cuisine):
+        '''
+        Returns the restaurant ids that match the given cuisine type.
+        args:
+            cuisine: str, cuisine name to match
+        output:
+            matching_restaurants: list[int], array of restaurant ids
+        '''
+        matching_restaurants = []
+        cuisine_names = self.data_storage.cuisines.keys()
+        matching_cuisines = [name for name in cuisine_names if cuisine.lower() in name.lower()]
+        if matching_cuisines:
+            for matched_cuisine in matching_cuisines:
+                cuisine_restaurant_ids = self.data_storage.cuisines.get(matched_cuisine)
+                matching_restaurants.extend(cuisine_restaurant_ids)
+
+        return matching_restaurants
+
+    def return_filtered_restaurant_names(self, name, restaurant_ids=[]):
+        '''
+        Returns the restaurant ids whose restaurants names are substrings of given name
+        args:
+            name: str, restaurant name to match
+            restaurant_ids: optional list[str], additional match param
         return:
-            curr_count: int, inputed restaurant's corresponding id value
+            list[int], array of restaurant ids
         '''
-        curr_count = self.restaurant_count
-        self.names[curr_count] = restaurant_name
-        self.restaurant_count += 1
-        return str(curr_count)
-
-    def match_restaurant_to_cuisine(self, current_restaurant_id, cuisine_id):
-        '''
-        Populates self.cuisines with restaurant names of those under its jurisdiction
-        input:
-            cuisine_id: int, key value for self.cuisine_ids
-            current_restaurant_id: int, restaurant's corresponding id value
-        '''
-        cuisine_name = self.cuisine_ids[cuisine_id]
-        self.cuisines[cuisine_name].append(current_restaurant_id)
-
-    def match_restaurant_to_rating(self, current_restaurant_id, customer_rating):
-        '''
-        Populates self.ratings with restaurant names of those under its jurisdiction
-        input:
-            customer_rating: int, range(1, 5), rating number
-            current_restaurant_id: int, restaurant's corresponding id value
-        '''
-        if customer_rating in self.ratings:
-            self.ratings[customer_rating].append(current_restaurant_id)
+        if restaurant_ids:
+            restaurants = [(id, self.data_storage.names.get(id)) for id in restaurant_ids]
         else:
-            self.ratings[customer_rating] = [current_restaurant_id]
+            restaurants = self.data_storage.names.items()
 
-    def match_restaurant_to_distances(self, current_restaurant_id, distance):
-        '''
-        Populates self.distances with restaurant names of those under its jurisdiction
-        input:
-            row: int, range(1, 10), distance value away from user
-            current_restaurant_id: int, restaurant's corresponding id value
-        '''
-        if distance in self.distances:
-            self.distances[distance].append(current_restaurant_id)
-        else:
-            self.distances[distance] = [current_restaurant_id]
+        return [restaurant[0] for restaurant in restaurants if name in restaurant[1].lower()]
 
-    def match_restaurant_to_prices(self, current_restaurant_id, price):
+    def order_results(self, unique_restaurant_ids, ranked_results, existing_sort_params):
         '''
-        Populates self.prices with restaurant names of those under its jurisdiction
-        input:
-            row: int, range(10, 50), $price amount for restaurant
-            current_restaurant_id: int, restaurant's corresponding id value
+        Takes previously filtered information and sorts it to order the results to fit the business logic required
+        args:
+            unique_restaurant_ids: set, previously filtered restaurant_ids left to sort
+            ranked_results: dict, key/val of previously filtered parameters and the parameter specific filtered restaurant_ids
+            existing_sort_params: list[str], ordered array of sort hierarchy
         '''
-        if price in self.prices:
-            self.prices[price].append(current_restaurant_id)
-        else:
-            self.prices[price] = [current_restaurant_id]
+        if not existing_sort_params:
+            return list(unique_restaurant_ids)
+
+        relevance_order = []
+
+        # Sort in order of importance: distance -> rating -> price
+        while unique_restaurant_ids and existing_sort_params:
+            key = existing_sort_params.pop(0)
+            criteria_filtered_ids = ranked_results[key]
+            # loop through each depth to determine order
+            # depth ie: [[1,2,3], [8,4,5], [12], [44]]
+            for depth in criteria_filtered_ids:
+                found_in_level = unique_restaurant_ids & set(depth)
+                unique_restaurant_ids = unique_restaurant_ids - found_in_level
+                # if tied relevancy sort via next order criteria
+                if len(found_in_level) > 1:
+                    found_in_level = self.order_results(set(found_in_level), ranked_results, existing_sort_params)
+
+                relevance_order = relevance_order + list(found_in_level)
+
+        return relevance_order
+
+    def return_filtered_results(self, params):
+        '''
+        Provides logical filtering and sorting based on provided parameters
+        args:
+            params: dict, hashed version of request args
+        returns:
+            list[int], an ordered array of restaurant ids
+        '''
+        unique_restaurant_ids = []
+        ranked_results = {}
+        # cuisine as a top level filter if valid
+        if "cuisine" in params:
+            unique_restaurant_ids = self.return_filtered_cuisine(params["cuisine"])
+
+        # subsequent filters will create "AND queries
+        for key in self.match_importance:
+            filter_method = self.param_key_to_store_map.get(key)
+
+            if key in params:
+                restaurant_ids = filter_method(unique_restaurant_ids, params[key].lower())
+            else:
+                restaurant_ids = filter_method(unique_restaurant_ids)
+
+            if not restaurant_ids:
+                return None
+
+            ranked_results[key] = restaurant_ids
+            unique_restaurant_ids = [id for sublist in restaurant_ids for id in sublist]
+
+        if "name" in params:
+            unique_restaurant_ids = self.return_filtered_restaurant_names(params["name"], unique_restaurant_ids)
+
+        return self.order_results(set(unique_restaurant_ids), ranked_results, self.match_importance)
+
+    def return_restaurant_information(self, restaurant_ids):
+        '''
+        Returns all available information about specified restaurants
+        args:
+            restaurant_ids: list[int], restaurants ids
+        return:
+            restaurants: list[dict], array of hashes of all requested restaurants' properties
+        '''
+        restaurants = []
+        for id in restaurant_ids:
+            restaurants_data = self.data_storage.restaurant_details[id]
+
+            whole_restaurant_info = {
+                "name": self.data_storage.names[id],
+                "cuisine": self.data_storage.cuisine_ids[restaurants_data["cuisine_id"]],
+                "rating": restaurants_data["rating"],
+                "distance": restaurants_data["distance"],
+                "price": restaurants_data["price"]
+            }
+
+            restaurants.append(whole_restaurant_info)
+
+        return restaurants
