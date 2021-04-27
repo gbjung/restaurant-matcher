@@ -21,7 +21,7 @@ class DataManager:
         # ranking of importance of criterias
         self.match_importance = ["distance", "rating", "price"]
 
-    def return_filtered_ratings(self, restaurant_ids=[], rating=1):
+    def return_filtered_ratings(self, restaurant_ids=[], rating='1'):
         '''
         Returns the restaurant ids that match the given rating.
         Ordered from highest rating to lowest
@@ -47,7 +47,7 @@ class DataManager:
 
         return matching_restaurants
 
-    def return_filtered_distances(self, restaurant_ids=[], distance=10):
+    def return_filtered_distances(self, restaurant_ids=[], distance='10'):
         '''
         Returns the restaurant ids that match the given distance.
         Ordered from most exact to additionally encompassing
@@ -73,7 +73,7 @@ class DataManager:
 
         return matching_restaurants
 
-    def return_filtered_prices(self, restaurant_ids=[], price=50):
+    def return_filtered_prices(self, restaurant_ids=[], price='50'):
         '''
         Returns the restaurant ids that match the given price.
         Ordered from cheapest
