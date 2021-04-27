@@ -149,7 +149,7 @@ class DataManager:
 
         # Sort in order of importance: distance -> rating -> price
         while unique_restaurant_ids and existing_sort_params:
-            key = existing_sort_params.pop(0)
+            key = existing_sort_params[0]
             criteria_filtered_ids = ranked_results[key]
             # loop through each depth to determine order
             # depth ie: [[1,2,3], [8,4,5], [12], [44]]
@@ -158,7 +158,7 @@ class DataManager:
                 unique_restaurant_ids = unique_restaurant_ids - found_in_level
                 # if tied relevancy sort via next order criteria
                 if len(found_in_level) > 1:
-                    found_in_level = self.order_results(set(found_in_level), ranked_results, existing_sort_params)
+                    found_in_level = self.order_results(set(found_in_level), ranked_results, existing_sort_params[1:])
 
                 relevance_order = relevance_order + list(found_in_level)
 

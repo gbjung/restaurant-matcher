@@ -90,12 +90,12 @@ def test_return_filtered_results(return_data_manager):
     assert filtered_results == [0, 1, 2, 3, 4, 7, 5]
     # multiple filters
     filtered_results = return_data_manager.return_filtered_results({'name': 'applebees', 'rating': '2'})
-    assert filtered_results == [0, 1, 2, 5, 3, 7, 4]
+    assert filtered_results == [1, 2, 3, 4, 7]
     # all filters
     filtered_results = return_data_manager.return_filtered_results({'name': 'applebees', 'rating': '2',
                                                                     'distance': '10', 'price': '35',
                                                                     'cuisine': 'american'})
-    assert filtered_results == [0, 1, 2, 3]
+    assert filtered_results == [1, 2]
     # no results
     filtered_results = return_data_manager.return_filtered_results({'name': 'toronto'})
     assert filtered_results == []
