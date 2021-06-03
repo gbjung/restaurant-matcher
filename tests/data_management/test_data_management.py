@@ -7,7 +7,7 @@ def return_data_manager():
 
 def test_return_filtered_ratings(return_data_manager):
     '''
-    Tests return_filtered_ratings method to return in ranked order
+    Testss return_filtered_ratings method to return in ranked order
     '''
     # With given restaurant_ids
     filtered_answer = return_data_manager.return_filtered_ratings([0,3,7,2,6])
